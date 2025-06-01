@@ -170,7 +170,7 @@ ${formattedData}
 });
 
 
-app.get('/',  async ()=>{
+app.get('/',  async (req,res)=>{
     try{
 
         res.json({ answer: "hello" });
