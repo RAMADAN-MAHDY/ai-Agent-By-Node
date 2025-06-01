@@ -170,15 +170,10 @@ ${formattedData}
 });
 
 
-app.get('/',  async (req,res)=>{
-    try{
-
-  res.send('hello');
-    } catch (error) {
-        console.error('Error:', error);
-      
-    }
+app.get('/', async (req, res) => {
+  res.json({ message: 'hi' }); // ✅
 });
+
 
 
 app.listen(PORT, () => {
