@@ -173,8 +173,7 @@ ${formattedData}
 app.get('/',  async (req,res)=>{
     try{
 
-        res.json({ answer: "hello" });
-
+  res.send('hello');
     } catch (error) {
         console.error('Error:', error);
       
