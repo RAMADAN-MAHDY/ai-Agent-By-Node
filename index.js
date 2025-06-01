@@ -19,7 +19,7 @@ const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 // ✅ تفعيل cors بإعدادات مناسبة
 app.use(cors({
-    origin: 'http://localhost:3001', // عدّلها على حسب عنوان موقعك
+    origin: 'https://village-services-dxve.vercel.app', // عدّلها على حسب عنوان موقعك
     credentials: true,
 }));
 
