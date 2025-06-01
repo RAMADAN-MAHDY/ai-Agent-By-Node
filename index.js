@@ -170,7 +170,16 @@ ${formattedData}
 });
 
 
+app.get('/',  async ()=>{
+    try{
 
+        res.json({ answer: "hello" });
+
+    } catch (error) {
+        console.error('Error:', error);
+      
+    }
+});
 
 
 app.listen(PORT, () => {
