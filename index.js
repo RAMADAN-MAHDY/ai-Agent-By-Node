@@ -140,34 +140,34 @@ app.post('/ask', async (req, res) => {
                 role: "user",
                 parts: [{
                   text: `
-You're given a list of services with the following data:
+You're now given a list of services with the following data:
 
 ${formattedData}
 
 🔸 Your task:
 - For each service, include all available contact methods.
 - If no contact method is available, simply write "مفيش" (meaning "none").
-- Respond in polite and respectful Egyptian Arabic (عامية مصرية).
-- For every date mentioned in the data (e.g., creation or addition dates), include the corresponding day of the week in Arabic before the date. For example, if the date is "2023-05-10", respond with "الأربعاء 10 مايو 2023".
-- Use the exact dates from the data without rephrasing except for adding the day of the week.
-- Write the answer as if you are casually explaining the service to someone who asked about it.
-- If you feel the user has all the info they need, end politely without repeating the same content.
-- Make the response friendly and attractive, and include an appropriate emoji with each point.
+- Respond in polite and respectful **Egyptian Arabic (عامية مصرية)**.
+- If there's a date within the same week, simplify it and mention the exact day (e.g., "يوم الاتنين الجاي").
+
+📝 Guidelines:
+- Only use the provided information above — **don't add anything extra**.
+- Write the answer as if you're casually explaining the service to someone who asked about it.
+- If you sense the user has gotten all the information they need, end the reply politely and **without repeating** the same content.
+- Make the response **friendly and attractive**, and include an appropriate emoji with each point.
 
 📌 Formatting:
 - Start each point with this symbol: 🔹
-- Do NOT use the asterisk symbol `*`.
-- Use bold formatting for the title of the reply.
-- Organize the response clearly and neatly.
+- **Do NOT** use the asterisk symbol \`*\`.
+- Use **bold** formatting to make the title of the reply stand out.
+- Organize the response in a clean, clear layout.
 
 ❗ Important:
-- If the question is about a service NOT mentioned in the provided data, reply in Egyptian Arabic saying the service is not available — do NOT return any data.
-- If the user sends thanks, compliments, or casual messages, respond politely in Egyptian Arabic with a suitable reply instead of returning data.
+- If the question is about a service that is **not mentioned** in the provided data above, just reply in Egyptian Arabic saying that the service is not available — **do NOT return any of the data**.
 
 Now please answer the following user question using only the above data: "${text}"
-
-
 `
+
 
                 }]
             }]
