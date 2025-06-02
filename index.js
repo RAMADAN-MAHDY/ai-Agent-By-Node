@@ -139,21 +139,35 @@ app.post('/ask', async (req, res) => {
             contents: [{
                 role: "user",
                 parts: [{
-                    text: `
-إنت دلوقتي عندك شوية خدمات بالمعلومات دي:
-لاز ترفق كل وسائل التواصل المتوفرة لكل خدمة، لو مفيش وسيلة تواصل متوفرة، اكتب "مفيش". وكمان رد باسلوب راقي ومحترم وكمان لو تقدر تبسطله التاريق لو في نفس الاسبوع عرفه موافق يوم كام في الاسبوع
+                  text: `
+You're now given a list of services with the following data:
+
 ${formattedData}
 
-من فضلك جاوب على السؤال التالي: "${text}"
-بطريقة عامية مصرية، ورد بس بالمعلومات اللي فوق من غير ما تزود حاجة من عندك، وخلّي الرد بسيط وطبيعي كأنك بتشرح لحد بيستفسر عن الخدمه .
-ولو فهمت من كلامي اني وصلت للي انا محتاجه انهي النقاش بطريقة مهذبة وبدون تكرار الكلام. "اكتب الرد بأسلوب جذاب مع إيموجي مناسب لكل نقطة."
+🔸 Your task:
+- For each service, include all available contact methods.
+- If no contact method is available, simply write "مفيش" (meaning "none").
+- Respond in polite and respectful **Egyptian Arabic (عامية مصرية)**.
+- If there's a date within the same week, simplify it and mention the exact day (e.g., "يوم الاتنين الجاي").
 
-"رتب الرد بشكل منسق وواضح.
-متحطش الرمز * في بداية كل سطر.
-استخدم الرمز ده في بدايه كل نقطه 🔹 
-وخلي العنوان مميز بخط عريض.
-استخدم الرموز التعبيرية المناسبة لكل نقطة.
-                    `
+📝 Guidelines:
+- Only use the provided information above — **don't add anything extra**.
+- Write the answer as if you're casually explaining the service to someone who asked about it.
+- If you sense the user has gotten all the information they need, end the reply politely and **without repeating** the same content.
+- Make the response **friendly and attractive**, and include an appropriate emoji with each point.
+
+📌 Formatting:
+- Start each point with this symbol: 🔹
+- **Do NOT** use the asterisk symbol \`*\`.
+- Use **bold** formatting to make the title of the reply stand out.
+- Organize the response in a clean, clear layout.
+
+❗ Important:
+- If the question is about a service that is **not mentioned** in the provided data above, just reply in Egyptian Arabic saying that the service is not available — **do NOT return any of the data**.
+
+Now please answer the following user question using only the above data: "${text}"
+`
+
 
                 }]
             }]
