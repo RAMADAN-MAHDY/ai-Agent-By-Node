@@ -148,7 +148,7 @@ ${formattedData}
 - For each service, include all available contact methods.
 - If no contact method is available, simply write "مفيش" (meaning "none").
 - Respond in polite and respectful **Egyptian Arabic (عامية مصرية)**.
-- If there's a date within the same week, simplify it and mention the exact day (e.g., "يوم الاتنين الجاي").
+- If there's a date within the same week, simplify it and mention the exact day.
 
 📝 Guidelines:
 - Only use the provided information above — **don't add anything extra**.
