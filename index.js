@@ -135,7 +135,7 @@ app.post('/ask', async (req, res) => {
 
         // 3. طلب رد من Gemini بصيغة عامية
         const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "Gemini-2.0-Flash-Lite",
             contents: [{
                 role: "user",
                 parts: [{
