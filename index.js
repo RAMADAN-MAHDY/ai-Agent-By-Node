@@ -148,10 +148,10 @@ ${formattedData}
 - For each service, include all available contact methods.
 - If no contact method is available, simply write "مفيش" (meaning "none").
 - Respond in polite and respectful **Egyptian Arabic (عامية مصرية)**.
-- If there's a date within the same week, simplify it and mention the exact day (e.g., "يوم الاتنين الجاي").
 
 📝 Guidelines:
 - Only use the provided information above — **don't add anything extra**.
+- Do **not** simplify or rephrase creation or addition dates — just mention them as they are.
 - Write the answer as if you're casually explaining the service to someone who asked about it.
 - If you sense the user has gotten all the information they need, end the reply politely and **without repeating** the same content.
 - Make the response **friendly and attractive**, and include an appropriate emoji with each point.
@@ -166,8 +166,8 @@ ${formattedData}
 - If the question is about a service that is **not mentioned** in the provided data above, just reply in Egyptian Arabic saying that the service is not available — **do NOT return any of the data**.
 
 Now please answer the following user question using only the above data: "${text}"
-`
 
+`
 
                 }]
             }]
