@@ -3,11 +3,11 @@ import { GoogleGenAI } from '@google/genai';
 import * as dotenv from 'dotenv';
 import cors from 'cors';
 import { MongoClient } from 'mongodb';
-
+import clientPromise from './db.js'
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 
 const MONGO_URI = process.env.MONGO_URI;
@@ -39,26 +39,26 @@ const handleEmbeddindgVectorCreation = async (text) => {
     }
 }
 
-// ✅ إنشاء نقطة نهاية لتوليد embedding
+// // ✅ إنشاء نقطة نهاية لتوليد embedding
 
-app.post('/embed', async (req, res) => {
-    try {
-        const { text } = req.body;
+// app.post('/embed', async (req, res) => {
+//     try {
+//         const { text } = req.body;
 
-        if (!text) {
-            return res.status(400).json({ error: 'Text is required in request body.' });
-        }
+//         if (!text) {
+//             return res.status(400).json({ error: 'Text is required in request body.' });
+//         }
 
-        // 1. توليد embedding من النص
-        const embedding = await handleEmbeddindgVectorCreation(text);
-        res.json({ embedding });
+//         // 1. توليد embedding من النص
+//         const embedding = await handleEmbeddindgVectorCreation(text);
+//         res.json({ embedding });
 
 
-    } catch (error) {
-        console.error('Embedding error:', error);
-        res.status(500).json({ error: 'Failed to generate embedding.' });
-    }
-});
+//     } catch (error) {
+//         console.error('Embedding error:', error);
+//         res.status(500).json({ error: 'Failed to generate embedding.' });
+//     }
+// });
 
 
 // ✅ إنشاء نقطة نهاية لاستعلام فيكتور سيرش على MongoDB
@@ -72,7 +72,7 @@ app.post('/ask', async (req, res) => {
         // 1. توليد embedding من النص
         const queryVector = await handleEmbeddindgVectorCreation(text);
 
-        await client.connect();
+        const client = await clientPromise;
         const db = client.db('village');
         const collection = db.collection('providingservices');
         const MIN_SCORE_THRESHOLD = 0.75;
@@ -90,6 +90,7 @@ app.post('/ask', async (req, res) => {
             },
             {
                 $project: {
+                    createdAt : 1 ,
                     description: 1,
                     category: 1,
                     phone: 1,
@@ -139,7 +140,7 @@ app.post('/ask', async (req, res) => {
             contents: [{
                 role: "user",
                 parts: [{
-                  text: `
+                    text: `
 You're now given a list of services with the following data:
 
 ${formattedData}
@@ -148,8 +149,9 @@ ${formattedData}
 - For each service, include all available contact methods.
 - If no contact method is available, simply write "مفيش" (meaning "none").
 - Respond in polite and respectful **Egyptian Arabic (عامية مصرية)**.
-- If there's a date within the same week, simplify it and mention the exact day.
+If a service has a date within the same week as today, simplify it by including the day of the week along with the date (e.g., "يوم التلات 4/6/2025").
 
+Otherwise, just show the full date normally (e.g., "4/6/2025").
 📝 Guidelines:
 - Only use the provided information above — **don't add anything extra**.
 - Write the answer as if you're casually explaining the service to someone who asked about it.
@@ -185,7 +187,7 @@ Now please answer the following user question using only the above data: "${text
 
 
 app.get('/', async (req, res) => {
-  res.json({ message: 'hi' }); // ✅
+    res.json({ message: 'hi' }); // ✅
 });
 
 
