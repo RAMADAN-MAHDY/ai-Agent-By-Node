@@ -4,15 +4,12 @@ import * as dotenv from 'dotenv';
 import cors from 'cors';
 import { MongoClient } from 'mongodb';
 import clientPromise from './db.js'
+
 dotenv.config();
+//https://village-services-dxve.vercel.app
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-
-const MONGO_URI = process.env.MONGO_URI;
-
-const client = new MongoClient(MONGO_URI)
 
 const GEMINI_API_KEY = process.env.GEMINIAI_API_KEY;
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -39,85 +36,139 @@ const handleEmbeddindgVectorCreation = async (text) => {
     }
 }
 
-// // ✅ إنشاء نقطة نهاية لتوليد embedding
-
-// app.post('/embed', async (req, res) => {
-//     try {
-//         const { text } = req.body;
-
-//         if (!text) {
-//             return res.status(400).json({ error: 'Text is required in request body.' });
-//         }
-
-//         // 1. توليد embedding من النص
-//         const embedding = await handleEmbeddindgVectorCreation(text);
-//         res.json({ embedding });
-
-
-//     } catch (error) {
-//         console.error('Embedding error:', error);
-//         res.status(500).json({ error: 'Failed to generate embedding.' });
-//     }
-// });
-
+// فانكشن تحليل نية المستخدم
+function analyzeUserIntent(userText) {
+    const text = userText.toLowerCase();
+    
+    // كلمات تدل على البحث عن مقدم خدمة
+    const seekingProviderKeywords = [
+        'بدور على', 'عايز', 'محتاج', 'في', 'فين', 'عندكم', 'متوفر',
+        'ابحث عن', 'أريد', 'أحتاج', 'هل يوجد'
+    ];
+    
+    // كلمات تدل على البحث عن طالب خدمة  
+    const seekingRequesterKeywords = [
+        'حد محتاج', 'حد طالب', 'حد عايز', 'مين محتاج', 'في حد',
+        'أحد يحتاج', 'شخص محتاج', 'يوجد أحد'
+    ];
+    
+    const isSeekingProvider = seekingProviderKeywords.some(keyword => text.includes(keyword));
+    const isSeekingRequester = seekingRequesterKeywords.some(keyword => text.includes(keyword));
+    
+    if (isSeekingProvider) return 'providing';
+    if (isSeekingRequester) return 'request';
+    
+    return null; // غير واضح
+}
 
 // ✅ إنشاء نقطة نهاية لاستعلام فيكتور سيرش على MongoDB
-
 app.post('/ask', async (req, res) => {
     try {
         const { text } = req.body;
         if (!text) {
             return res.status(400).json({ error: 'text is required' });
         }
+
         // 1. توليد embedding من النص
         const queryVector = await handleEmbeddindgVectorCreation(text);
-
         const client = await clientPromise;
         const db = client.db('village');
-        const collection = db.collection('providingservices');
+        const collection_providing = db.collection('providingservices');
+        const collection_request = db.collection('helprequests');
         const MIN_SCORE_THRESHOLD = 0.75;
 
-        // 1. استعلام فيكتور سيرش على MongoDB
-        const results = await collection.aggregate([
-            {
-                $vectorSearch: {
-                    index: "vector_index",
-                    path: "embedding",
-                    queryVector: queryVector,
-                    numCandidates: 100,
-                    limit: 5
+        const [results, results_request] = await Promise.all([
+            collection_providing.aggregate([
+                {
+                    $vectorSearch: {
+                        index: "vector_index",
+                        path: "embedding",
+                        queryVector: queryVector,
+                        numCandidates: 100,
+                        limit: 5
+                    }
+                },
+                {
+                    $project: {
+                        type: 1,
+                        createdAt: 1,
+                        description: 1,
+                        category: 1,
+                        phone: 1,
+                        whatsapp: 1,
+                        email: 1,
+                        score: { $meta: "vectorSearchScore" }
+                    }
                 }
-            },
-            {
-                $project: {
-                    createdAt : 1 ,
-                    description: 1,
-                    category: 1,
-                    phone: 1,
-                    whatsapp: 1,
-                    email: 1,
-                    score: { $meta: "vectorSearchScore" }
+            ]).toArray(),
+            collection_request.aggregate([
+                {
+                    $vectorSearch: {
+                        index: "request_index",
+                        path: "embedding",
+                        queryVector: queryVector,
+                        numCandidates: 100,
+                        limit: 5
+                    }
+                },
+                {
+                    $project: {
+                        type: 1,
+                        createdAt: 1,
+                        description: 1,
+                        category: 1,
+                        phone: 1,
+                        whatsapp: 1,
+                        email: 1,
+                        score: { $meta: "vectorSearchScore" }
+                    }
                 }
+            ]).toArray()
+        ]);
+
+        if (results.length === 0 && results_request.length === 0) {
+            return res.json({
+                answer: `لم أجد أي خدمات او طلب شبيهة بال ${text}.`
+            });
+        }
+
+        const allResults = [...results, ...results_request];
+        // ✅ إعادة الترتيب بحسب المعدل
+        const sortedResults = allResults.sort((a, b) => b.score - a.score);
+
+        // ✅ تحليل نية المستخدم وفلترة البيانات
+        const userIntent = analyzeUserIntent(text);
+        let filteredResults = sortedResults;
+
+        if (userIntent) {
+            filteredResults = sortedResults.filter(item => {
+                if (userIntent === 'providing') {
+                    return item.type === 'providing';
+                } else if (userIntent === 'request') {
+                    return item.type === 'request';
+                }
+                return true;
+            });
+
+            if (filteredResults.length === 0) {
+                const serviceType = userIntent === 'providing' ? 'مقدمي خدمة' : 'طالبي خدمة';
+                return res.json({
+                    answer: `معلش، مفيش ${serviceType} متاحين للخدمة دي دلوقتي. جرب تسأل عن خدمة تانية ❤️`
+                });
             }
-        ]).toArray();
-
-        if (results.length === 0) {
-            return res.json({
-                answer: `لم أجد أي خدمات شبيهة بخدمة ${text}.`
-            });
-        }
-        // ✅ التحقق من وجود نتائج قريبة كفاية
-        const hasRelevantResults = results.some(r => r.score >= MIN_SCORE_THRESHOLD);
-
-        if (!hasRelevantResults) {
-            return res.json({
-                answer: `مافيش خدمات شبيهة بخدمة "${text}" بشكل كافي حاليًا. جرب توصفها بطريقة مختلفة ❤️`
-            });
         }
 
+        // ✅ اختيار الأكثر قريبة
+        const closestResult = filteredResults[0];
+
+        if (closestResult.score < MIN_SCORE_THRESHOLD) {
+            return res.json({
+                answer: `لم أجد أي خدمات او طلب شبيهة بال ${text}.`
+            });
+        }
 
         // 2. تجهيز البيانات بشكل منظم
-        const formattedData = results.map((item, i) => {
+        const formattedData = filteredResults.map((item, i) => {
             const createdAt = new Date(item.createdAt || Date.now());
             const date = `${createdAt.getDate()}/${createdAt.getMonth() + 1}/${createdAt.getFullYear()}`;
 
@@ -126,51 +177,68 @@ app.post('/ask', async (req, res) => {
             if (item.whatsapp) contacts.push(`📱 واتساب: ${item.whatsapp}`);
             if (item.email) contacts.push(`📧 بريد إلكتروني: ${item.email}`);
 
-
             return `🔹 خدمة ${i + 1}:
 - الفئة: ${item.category || "غير محددة"}
+- نوع الطلب: ${item.type == "request" ? "ده واحد طالب خدمه" : "ده واحد مقدم خدمه"}
 - التفاصيل: ${item.description || "مفيش وصف"}
 - تاريخ الإضافة: ${date}
 - وسائل التواصل: ${contacts.length > 0 ? contacts.join(" | ") : "مفيش"}`
         }).join('\n\n');
 
-        // 3. طلب رد من Gemini بصيغة عامية
+        // 3. طلب رد من Gemini بصيغة عامية محسنة
         const response = await ai.models.generateContent({
             model: "gemini-2.0-flash",
             contents: [{
                 role: "user",
                 parts: [{
                     text: `
-You're now given a list of services with the following data:
+أنت مساعد ذكي لخدمات القرية. مهمتك تحليل طلب المستخدم وعرض البيانات المناسبة فقط.
 
+📋 البيانات المتاحة:
 ${formattedData}
 
-🔸 Your task:
-- For each service, include all available contact methods.
-- If no contact method is available, simply write "مفيش" (meaning "none").
-- Respond in polite and respectful **Egyptian Arabic (عامية مصرية)**.
-If a service has a date within the same week as today, simplify it by including the day of the week along with the date (e.g., "يوم التلات 4/6/2025").
+🎯 سؤال المستخدم: "${text}"
 
-Otherwise, just show the full date normally (e.g., "4/6/2025").
-📝 Guidelines:
-- Only use the provided information above — **don't add anything extra**.
-- Write the answer as if you're casually explaining the service to someone who asked about it.
-- If you sense the user has gotten all the information they need, end the reply politely and **without repeating** the same content.
-- Make the response **friendly and attractive**, and include an appropriate emoji with each point.
+🔍 تعليمات التحليل والرد:
 
-📌 Formatting:
-- Start each point with this symbol: 🔹
-- **Do NOT** use the asterisk symbol \`*\`.
-- Use **bold** formatting to make the title of the reply stand out.
-- Organize the response in a clean, clear layout.
+1️⃣ **تحليل نوع الطلب:**
+   - إذا كان السؤال يبحث عن مقدم خدمة (مثل: "بدور على كهربائي" أو "عايز نجار" أو "في سباك؟") 
+     → اعرض فقط البيانات التي نوعها "ده واحد مقدم خدمه"
+   
+   - إذا كان السؤال يبحث عن طالب خدمة (مثل: "حد محتاج كهربائي؟" أو "في حد طالب نجار؟")
+     → اعرض فقط البيانات التي نوعها "ده واحد طالب خدمه"
 
-❗ Important:
-- If the question is about a service that is **not mentioned** in the provided data above, just reply in Egyptian Arabic saying that the service is not available — **do NOT return any of the data**.
+2️⃣ **فلترة حسب نوع الخدمة:**
+   - اعرض فقط البيانات المتعلقة بنوع الخدمة المطلوبة
+   - لو السؤال عن "كهربائي" → اعرض بس خدمات الكهرباء
+   - لو السؤال عن "نجار" → اعرض بس خدمات النجارة
+   - وهكذا...
 
-Now please answer the following user question using only the above data: "${text}"
-`
+3️⃣ **أسلوب الرد:**
+   - استخدم العامية المصرية بطريقة ودودة ومحترمة
+   - ابدأ برد مناسب حسب نوع الطلب:
+     * للبحث عن مقدم خدمة: "لقيتلك [عدد] مقدم خدمة متاح..."
+     * للبحث عن طالب خدمة: "في [عدد] شخص طالب الخدمة دي..."
+   
+   - اعرض كل خدمة بالشكل ده:
+   🔹 **[رقم الخدمة]**
+   📂 **الفئة:** [الفئة]
+   📝 **التفاصيل:** [الوصف]
+   📅 **التاريخ:** [التاريخ]
+   📞 **التواصل:** [وسائل التواصل]
 
+4️⃣ **حالات خاصة:**
+   - لو مفيش بيانات مناسبة للطلب، قول: "معلش، مفيش [نوع الخدمة] متاح دلوقتي. ممكن تجرب تدور على خدمة تانية أو تسأل بعدين ❤️"
+   - لو مفيش تطابق في نوع الخدمة، قول: "الخدمة دي مش متوفرة حالياً، بس ممكن تشوف الخدمات التانية المتاحة"
 
+⚠️ **مهم جداً:**
+- متعرضش بيانات غلط (لا تخلط بين مقدمي ومطالبي الخدمة)
+- متشرحش العملية، رد بالنتيجة مباشرة
+- لو مش متأكد من نوع الطلب، اسأل المستخدم يوضح أكتر
+- استخدم نفس التنسيق الموجود في البيانات
+
+رد دلوقتي بناءً على التحليل ده:
+                    `
                 }]
             }]
         });
@@ -181,17 +249,14 @@ Now please answer the following user question using only the above data: "${text
         console.error('Error:', error);
         res.status(500).json({ error: 'Internal server error' });
     } finally {
-        await client.close();
+        // await client.close();
     }
 });
 
-
 app.get('/', async (req, res) => {
-    res.json({ message: 'hi' }); // ✅
+    res.json({ message: 'hi' });
 });
-
-
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
-});
+}); 
